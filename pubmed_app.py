@@ -14,7 +14,7 @@ EXCEL_PATH = "uat_issues.xlsx"
 @st.cache_data(ttl=5)
 def load_excel():
     """Loads Excel file and returns both sheets."""
-    df_main = pd.read_excel(EXCEL_PATH, sheet_name="UAT_Issues")
+    df_main = pd.read_excel(EXCEL_PATH, sheet_name="uat_issues")
     df_arch = pd.read_excel(EXCEL_PATH, sheet_name="Architecture_Issues")
     return df_main, df_arch
 
