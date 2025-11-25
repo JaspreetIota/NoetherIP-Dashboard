@@ -7,12 +7,12 @@ import plotly.express as px
 EXCEL_PATH = "uat_issues.xlsx"
 
 # ----------------------------------------------------------
-# CLIENT STATUS COLUMNS (your exact column names)
+# CLIENT COLUMNS (EXACT AS PROVIDED)
 # ----------------------------------------------------------
 CLIENT_COLUMNS = [
-    "⭐Portfolio Demo",
-    "⭐Diabetes",
-    "⭐TMW",
+    "Portfolio Demo",
+    "Diabetes",
+    "TMW",
     "MDR",
     "EDL",
     "STF",
@@ -21,23 +21,20 @@ CLIENT_COLUMNS = [
 
 
 # ----------------------------------------------------------
-# LOAD EXCEL (AUTO-DETECT SHEET NAMES)
+# LOAD EXCEL
 # ----------------------------------------------------------
 @st.cache_data(ttl=5)
 def load_excel():
-    """Load Excel safely and return both sheets."""
     xls = pd.ExcelFile(EXCEL_PATH)
-
-    # Try exact names, fallback to first two sheets
     sheet_names = xls.sheet_names
 
-    # MAIN SHEET
+    # MAIN UAT sheet
     if "uat_issues" in sheet_names:
         df_main = pd.read_excel(EXCEL_PATH, sheet_name="uat_issues")
     else:
         df_main = pd.read_excel(EXCEL_PATH, sheet_name=sheet_names[0])
 
-    # ARCHITECTURE SHEET
+    # ARCHITECTURE sheet
     if "architecture_issues" in sheet_names:
         df_arch = pd.read_excel(EXCEL_PATH, sheet_name="architecture_issues")
     else:
@@ -47,45 +44,42 @@ def load_excel():
 
 
 # ----------------------------------------------------------
-# SAVE FUNCTION
+# SAVE EXCEL
 # ----------------------------------------------------------
 def save_excel(df_main, df_arch):
-    with pd.ExcelWriter(EXCEL_PATH, engine='openpyxl') as writer:
+    with pd.ExcelWriter(EXCEL_PATH, engine="openpyxl") as writer:
         df_main.to_excel(writer, sheet_name="uat_issues", index=False)
         df_arch.to_excel(writer, sheet_name="architecture_issues", index=False)
 
 
 # ----------------------------------------------------------
-# BASIC PAGE CONFIG
+# APP CONFIG
 # ----------------------------------------------------------
 st.set_page_config(page_title="UAT Bug Tracker", layout="wide")
 st.title("🧪 UAT Bug & Issue Tracker")
 
 page = st.sidebar.radio(
     "Navigation",
-    ["📊 Dashboard", "📋 Editable Table – Main Issues", "🏗️ Architecture Issues"]
+    ("📊 Dashboard", "📋 UAT Issues (Editable)", "🏗️ Architecture Issues (Editable)")
 )
 
-
-# ----------------------------------------------------------
-# LOAD DATA
-# ----------------------------------------------------------
+# Load data
 df_main, df_arch = load_excel()
 
-# Ensure client columns exist
+# Only include client columns that exist
 client_cols = [c for c in CLIENT_COLUMNS if c in df_main.columns]
 
 
-# ==========================================================
+# ============================================================
 # PAGE 1 — DASHBOARD
-# ==========================================================
+# ============================================================
 if page == "📊 Dashboard":
 
-    st.header("Interactive Dashboard")
+    st.header("Dashboard Overview")
 
-    # ---------------- FILTERS ----------------
+    # Filters
     type_filter = st.multiselect("Filter by Type", df_main["Type"].unique())
-    client_filter = st.multiselect("Filter by Client (Resolved: Yes)", client_cols)
+    client_filter = st.multiselect("Filter by Client Resolved (Yes)", client_cols)
 
     filtered_df = df_main.copy()
 
@@ -95,73 +89,72 @@ if page == "📊 Dashboard":
     if client_filter:
         filtered_df = filtered_df[filtered_df[client_filter].eq("Yes").all(axis=1)]
 
-    # ---------------- CHARTS ----------------
+    # --- Charts ---
     col1, col2 = st.columns(2)
 
     with col1:
         if "Type" in filtered_df.columns:
-            fig1 = px.histogram(filtered_df, x="Type", title="Issues by Type")
+            fig1 = px.histogram(filtered_df, x="Type", title="Count by Issue Type")
             st.plotly_chart(fig1, use_container_width=True)
 
     with col2:
         if client_cols:
-            mdf = filtered_df[client_cols].apply(lambda x: (x == "Yes").sum())
-            fig2 = px.bar(mdf, title="Client-Wise Resolved Count")
+            counts = filtered_df[client_cols].apply(lambda x: (x == "Yes").sum())
+            fig2 = px.bar(counts, title="Resolved Count Per Client")
             st.plotly_chart(fig2, use_container_width=True)
 
-    # ---------------- TABLE ----------------
-    st.subheader("Filtered Issue List")
+    st.subheader("Filtered Data")
     st.dataframe(filtered_df, use_container_width=True)
 
-    # ---------------- IMAGE PREVIEW ----------------
-    st.subheader("Image Preview by SNo")
+    # ---- Image Preview ----
+    st.subheader("Preview Issue Image by SNo")
 
-    if "SNo" in df_main.columns:
-        issue_id = st.number_input("Enter SNo:", min_value=1, step=1)
+    if "Sno." in df_main.columns:
+        sno = st.number_input("Enter Sno.", min_value=1, step=1)
 
-        img_row = df_main[df_main["SNo"] == issue_id]
+        img_row = df_main[df_main["Sno."] == sno]
         if not img_row.empty:
-            img_path = img_row["Image"].iloc[0]
+            img_path = img_row["image"].iloc[0]
             if isinstance(img_path, str) and os.path.exists(img_path):
                 try:
                     img = Image.open(img_path)
                     st.image(img, width=600)
                 except:
-                    st.error("Cannot open the image file.")
+                    st.error("Could not display the image.")
             else:
-                st.warning("Image path not valid.")
+                st.warning("No valid image path found.")
 
 
-# ==========================================================
-# PAGE 2 — EDIT MAIN ISSUES
-# ==========================================================
-elif page == "📋 Editable Table – Main Issues":
+# ============================================================
+# PAGE 2 — EDIT UAT ISSUES
+# ============================================================
+elif page == "📋 UAT Issues (Editable)":
 
-    st.header("Edit Main UAT Issues")
+    st.header("Edit UAT Issues Sheet")
 
-    edited_df = st.experimental_data_editor(
+    edited_main = st.experimental_data_editor(
         df_main,
         num_rows="dynamic",
         use_container_width=True
     )
 
-    if st.button("💾 Save Changes"):
-        save_excel(edited_df, df_arch)
-        st.success("Main UAT Issues Sheet Updated.")
+    if st.button("💾 Save UAT Sheet"):
+        save_excel(edited_main, df_arch)
+        st.success("UAT Issues successfully saved.")
 
     st.download_button(
-        "⬇ Download Excel File",
+        "⬇ Download Updated Excel",
         data=open(EXCEL_PATH, "rb").read(),
-        file_name="UAT_Issues_Updated.xlsx"
+        file_name="uat_issues_updated.xlsx"
     )
 
 
-# ==========================================================
+# ============================================================
 # PAGE 3 — EDIT ARCHITECTURE ISSUES
-# ==========================================================
-elif page == "🏗️ Architecture Issues":
+# ============================================================
+elif page == "🏗️ Architecture Issues (Editable)":
 
-    st.header("Architecture Specific Issues")
+    st.header("Edit Architecture Issues Sheet")
 
     edited_arch = st.experimental_data_editor(
         df_arch,
@@ -169,12 +162,12 @@ elif page == "🏗️ Architecture Issues":
         use_container_width=True
     )
 
-    if st.button("💾 Save Architecture Changes"):
+    if st.button("💾 Save Architecture Sheet"):
         save_excel(df_main, edited_arch)
-        st.success("Architecture Sheet Updated.")
+        st.success("Architecture Issues saved.")
 
     st.download_button(
         "⬇ Download Updated Excel",
         data=open(EXCEL_PATH, "rb").read(),
-        file_name="Architecture_Issues_Updated.xlsx"
+        file_name="architecture_issues_updated.xlsx"
     )
