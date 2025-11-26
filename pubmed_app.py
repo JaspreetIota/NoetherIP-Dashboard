@@ -52,6 +52,49 @@ def load_feedback():
 def save_feedback(df_fb):
     df_fb.to_excel(FEEDBACK_PATH, index=False)
 
+# ------------------------ MEDIA HANDLING ------------------------
+def media_preview(file_name, media_type="image"):
+    path = os.path.join(MEDIA_FOLDER, file_name)
+    if os.path.exists(path):
+        if media_type == "image":
+            st.image(path, use_column_width=True)
+        elif media_type == "video":
+            st.video(path)
+
+def handle_media_upload(df, idx, col_prefix=""):
+    st.markdown(f"**Row {idx+1}: {df.at[idx,'Issue']}**")
+    col1, col2 = st.columns([3,1])
+
+    with col1:
+        # Image upload / paste
+        img_file = st.file_uploader(f"Upload/Paste Image row {idx+1}", type=["png","jpg","jpeg"], key=f"{col_prefix}img_{idx}")
+        if img_file:
+            path = os.path.join(MEDIA_FOLDER, img_file.name)
+            with open(path,"wb") as f:
+                f.write(img_file.getbuffer())
+            current_imgs = str(df.at[idx,"image"]) if pd.notna(df.at[idx,"image"]) else ""
+            imgs = list(set(current_imgs.split("|") + [img_file.name]))
+            df.at[idx,"image"] = "|".join([i for i in imgs if i])
+        # Eye icon for image
+        if pd.notna(df.at[idx,"image"]) and df.at[idx,"image"]:
+            if st.button("👁️ View Image", key=f"{col_prefix}eye_img_{idx}"):
+                media_preview(df.at[idx,"image"].split("|")[0], media_type="image")
+
+        # Video upload
+        vid_file = st.file_uploader(f"Upload Video row {idx+1}", type=["mp4","mov"], key=f"{col_prefix}vid_{idx}")
+        if vid_file:
+            path = os.path.join(MEDIA_FOLDER, vid_file.name)
+            with open(path,"wb") as f:
+                f.write(vid_file.getbuffer())
+            current_vids = str(df.at[idx,"video"]) if pd.notna(df.at[idx,"video"]) else ""
+            vids = list(set(current_vids.split("|") + [vid_file.name]))
+            df.at[idx,"video"] = "|".join([v for v in vids if v])
+        # Play icon for video
+        if pd.notna(df.at[idx,"video"]) and df.at[idx,"video"]:
+            if st.button("▶️ Play Video", key=f"{col_prefix}eye_vid_{idx}"):
+                media_preview(df.at[idx,"video"].split("|")[0], media_type="video")
+    return df
+
 # ------------------------ APP CONFIG ------------------------
 st.set_page_config(page_title="UAT & Architecture Bug Tracker", layout="wide")
 st.title("🧪 Noether IP Status")
@@ -68,16 +111,12 @@ if page == "📊 Dashboard":
     if dashboard_type == "UAT Issues":
         st.header("📊 UAT Issues Dashboard")
         df = df_main.copy()
-        # Filters
         type_options = df["Type"].dropna().unique().tolist() if "Type" in df.columns else []
         selected_types = st.multiselect("Filter by Type", type_options, default=type_options)
         client_options = [c for c in CLIENT_COLUMNS if c in df.columns]
         selected_clients = st.multiselect("Filter by Resolved Clients", client_options, default=client_options)
-
-        if selected_types:
-            df = df[df["Type"].isin(selected_types)]
-        if selected_clients:
-            df = df[df[selected_clients].eq("Yes").all(axis=1)]
+        if selected_types: df = df[df["Type"].isin(selected_types)]
+        if selected_clients: df = df[df[selected_clients].eq("Yes").all(axis=1)]
 
     else:
         st.header("🏗️ Architecture Issues Dashboard")
@@ -86,50 +125,40 @@ if page == "📊 Dashboard":
         selected_types = st.multiselect("Filter by Type", type_options, default=type_options)
         status_options = df["Status"].dropna().unique().tolist() if "Status" in df.columns else []
         selected_status = st.multiselect("Filter by Status", status_options, default=status_options)
-        if selected_types:
-            df = df[df["Type"].isin(selected_types)]
-        if selected_status:
-            df = df[df["Status"].isin(selected_status)]
+        if selected_types: df = df[df["Type"].isin(selected_types)]
+        if selected_status: df = df[df["Status"].isin(selected_status)]
 
-    # Column selection
     columns_to_show = st.multiselect("Select columns to display", df.columns.tolist(), default=df.columns.tolist())
     df_display = df[columns_to_show] if columns_to_show else df
     st.dataframe(df_display, use_container_width=True)
 
-    # Media Viewer
     with st.expander("📂 Media Viewer (Expand to see all images/videos)"):
         for idx, row in df.iterrows():
             title = f"S.No: {row.get('Sno.', '')} | Issue: {row.get('Issue','')}"
             st.markdown(f"**{title}**")
-            # Images
             images = list(set(str(row.get("image","")).split("|")))
             for img in images:
                 img = img.strip()
                 if img:
                     img_path = os.path.join(MEDIA_FOLDER, img)
-                    if os.path.exists(img_path):
-                        st.image(img_path, caption=img, use_column_width=True)
-            # Videos
+                    if os.path.exists(img_path): st.image(img_path, caption=img, use_column_width=True)
             videos = list(set(str(row.get("video","")).split("|")))
             for vid in videos:
                 vid = vid.strip()
                 if vid:
                     vid_path = os.path.join(MEDIA_FOLDER, vid)
-                    if os.path.exists(vid_path):
-                        st.video(vid_path)
+                    if os.path.exists(vid_path): st.video(vid_path)
 
     # Predefined charts
     st.subheader("Predefined Charts")
     if "Type" in df.columns and not df.empty:
         type_counts = df['Type'].value_counts().reset_index()
         type_counts.columns = ['Type','Count']
-        fig = px.bar(type_counts, x='Type', y='Count', title='Issues by Type')
-        st.plotly_chart(fig, use_container_width=True)
-    if "Status" in df.columns and "Status" in df.columns and not df.empty:
+        st.plotly_chart(px.bar(type_counts, x='Type', y='Count', title='Issues by Type'), use_container_width=True)
+    if "Status" in df.columns and not df.empty:
         status_counts = df['Status'].value_counts().reset_index()
         status_counts.columns = ['Status','Count']
-        fig = px.pie(status_counts, names='Status', values='Count', title='Status Counts')
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(px.pie(status_counts, names='Status', values='Count', title='Status Counts'), use_container_width=True)
 
     # Custom Charts
     st.subheader("Custom Chart")
@@ -137,13 +166,11 @@ if page == "📊 Dashboard":
     chart_type = st.selectbox("Select chart type", ["Bar","Pie","Histogram"], key=f"{dashboard_type}_chart_type")
     if chart_col:
         try:
-            if chart_type == "Bar":
-                fig = px.bar(df, x=chart_col, title=f"Bar Chart: {chart_col}")
-            elif chart_type == "Pie":
-                fig = px.pie(df, names=chart_col, title=f"Pie Chart: {chart_col}")
-            elif chart_type == "Histogram":
-                fig = px.histogram(df, x=chart_col, title=f"Histogram: {chart_col}")
-            st.plotly_chart(fig, use_container_width=True)
+            fig = None
+            if chart_type == "Bar": fig = px.bar(df, x=chart_col, title=f"Bar Chart: {chart_col}")
+            elif chart_type == "Pie": fig = px.pie(df, names=chart_col, title=f"Pie Chart: {chart_col}")
+            elif chart_type == "Histogram": fig = px.histogram(df, x=chart_col, title=f"Histogram: {chart_col}")
+            if fig: st.plotly_chart(fig, use_container_width=True)
         except Exception as e:
             st.warning(f"Cannot generate chart for column '{chart_col}': {e}")
 
@@ -152,28 +179,8 @@ elif page == "📋 UAT Issues (Editable)":
     st.header("📋 Edit UAT Issues")
     st.markdown("💾 **Save automatically** on any edit or media upload.")
     edited_main = st.experimental_data_editor(df_main, num_rows="dynamic", use_container_width=True)
-
     for idx in edited_main.index:
-        st.markdown(f"**Row {idx+1}: {edited_main.at[idx,'Issue']}**")
-        img_file = st.file_uploader(f"Upload Image for row {idx+1}", type=["png","jpg","jpeg"], key=f"img_{idx}")
-        vid_file = st.file_uploader(f"Upload Video for row {idx+1}", type=["mp4","mov"], key=f"vid_{idx}")
-        # Image handling
-        if img_file:
-            path = os.path.join(MEDIA_FOLDER, img_file.name)
-            with open(path,"wb") as f:
-                f.write(img_file.getbuffer())
-            current_imgs = str(edited_main.at[idx,"image"]) if pd.notna(edited_main.at[idx,"image"]) else ""
-            imgs = list(set(current_imgs.split("|") + [img_file.name]))
-            edited_main.at[idx,"image"] = "|".join([i for i in imgs if i])
-        # Video handling
-        if vid_file:
-            path = os.path.join(MEDIA_FOLDER, vid_file.name)
-            with open(path,"wb") as f:
-                f.write(vid_file.getbuffer())
-            current_vids = str(edited_main.at[idx,"video"]) if pd.notna(edited_main.at[idx,"video"]) else ""
-            vids = list(set(current_vids.split("|") + [vid_file.name]))
-            edited_main.at[idx,"video"] = "|".join([v for v in vids if v])
-
+        edited_main = handle_media_upload(edited_main, idx, col_prefix="uat_")
     save_excel(edited_main, df_arch)
     st.success("UAT Issues saved permanently.")
     st.download_button("⬇ Download UAT Excel", data=open(EXCEL_PATH,"rb").read(), file_name="uat_issues_updated.xlsx")
@@ -182,26 +189,8 @@ elif page == "🏗️ Architecture Issues (Editable)":
     st.header("🏗️ Edit Architecture Issues")
     st.markdown("💾 **Save automatically** on any edit or media upload.")
     edited_arch = st.experimental_data_editor(df_arch, num_rows="dynamic", use_container_width=True)
-
     for idx in edited_arch.index:
-        st.markdown(f"**Row {idx+1}: {edited_arch.at[idx,'Issue']}**")
-        img_file = st.file_uploader(f"Upload Image for row {idx+1}", type=["png","jpg","jpeg"], key=f"arch_img_{idx}")
-        vid_file = st.file_uploader(f"Upload Video for row {idx+1}", type=["mp4","mov"], key=f"arch_vid_{idx}")
-        if img_file:
-            path = os.path.join(MEDIA_FOLDER, img_file.name)
-            with open(path,"wb") as f:
-                f.write(img_file.getbuffer())
-            current_imgs = str(edited_arch.at[idx,"image"]) if pd.notna(edited_arch.at[idx,"image"]) else ""
-            imgs = list(set(current_imgs.split("|") + [img_file.name]))
-            edited_arch.at[idx,"image"] = "|".join([i for i in imgs if i])
-        if vid_file:
-            path = os.path.join(MEDIA_FOLDER, vid_file.name)
-            with open(path,"wb") as f:
-                f.write(vid_file.getbuffer())
-            current_vids = str(edited_arch.at[idx,"video"]) if pd.notna(edited_arch.at[idx,"video"]) else ""
-            vids = list(set(current_vids.split("|") + [vid_file.name]))
-            edited_arch.at[idx,"video"] = "|".join([v for v in vids if v])
-
+        edited_arch = handle_media_upload(edited_arch, idx, col_prefix="arch_")
     save_excel(df_main, edited_arch)
     st.success("Architecture Issues saved permanently.")
     st.download_button("⬇ Download Architecture Excel", data=open(EXCEL_PATH,"rb").read(), file_name="architecture_issues_updated.xlsx")
@@ -210,7 +199,7 @@ elif page == "🏗️ Architecture Issues (Editable)":
 elif page == "✉️ User Feedback":
     st.header("✉️ User Feedback")
     
-    # Feedback submission form (same as before)
+    # Feedback submission form
     with st.form("feedback_form"):
         name = st.text_input("Name")
         email = st.text_input("Email")
@@ -229,11 +218,6 @@ elif page == "✉️ User Feedback":
     # Editable table for previously submitted feedback
     st.subheader("Edit Submitted Feedback")
     edited_feedback = st.experimental_data_editor(df_feedback, num_rows="dynamic", use_container_width=True)
-    
-    # Save any edits permanently
     save_feedback(edited_feedback)
     st.success("All edits saved permanently!")
-
-    # Download feedback Excel
     st.download_button("⬇ Download Feedback Excel", data=open(FEEDBACK_PATH, "rb").read(), file_name="user_feedback.xlsx")
-
