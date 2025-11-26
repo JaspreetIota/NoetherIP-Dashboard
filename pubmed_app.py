@@ -209,15 +209,40 @@ elif page == "🏗️ Architecture Issues (Editable)":
 # ------------------------ USER FEEDBACK ------------------------
 elif page == "✉️ User Feedback":
     st.header("✉️ User Feedback")
-    with st.form("feedback_form"):
-        name = st.text_input("Name")
-        email = st.text_input("Email")
-        feedback = st.text_area("Feedback")
-        submitted = st.form_submit_button("Submit")
-        if submitted:
-            df_feedback = df_feedback.append({"Name":name,"Email":email,"Feedback":feedback,"Date":pd.Timestamp.now()}, ignore_index=True)
-            save_feedback(df_feedback)
-            st.success("Feedback saved successfully!")
+    st.markdown("💾 **Edit feedback directly in table or add new feedback. All changes saved permanently.**")
+    
+    # Make feedback table editable
+    edited_feedback = st.experimental_data_editor(df_feedback, num_rows="dynamic", use_container_width=True)
+    
+    # Auto-fill Date for new rows
+    for idx in edited_feedback.index:
+        if pd.isna(edited_feedback.at[idx, "Date"]):
+            edited_feedback.at[idx, "Date"] = pd.Timestamp.now()
+    
+    # Optional: Media upload per feedback row
+    st.subheader("Attach Media (optional)")
+    for idx in edited_feedback.index:
+        st.markdown(f"**Row {idx+1}: {edited_feedback.at[idx,'Feedback'] if 'Feedback' in edited_feedback.columns else ''}**")
+        img_file = st.file_uploader(f"Upload Image for row {idx+1}", type=["png","jpg","jpeg"], key=f"fb_img_{idx}")
+        vid_file = st.file_uploader(f"Upload Video for row {idx+1}", type=["mp4","mov"], key=f"fb_vid_{idx}")
+        if img_file:
+            path = os.path.join(MEDIA_FOLDER, img_file.name)
+            with open(path, "wb") as f:
+                f.write(img_file.getbuffer())
+            current_imgs = str(edited_feedback.at[idx,"image"]) if "image" in edited_feedback.columns and pd.notna(edited_feedback.at[idx,"image"]) else ""
+            imgs = list(set(current_imgs.split("|") + [img_file.name]))
+            edited_feedback.at[idx,"image"] = "|".join([i for i in imgs if i])
+        if vid_file:
+            path = os.path.join(MEDIA_FOLDER, vid_file.name)
+            with open(path, "wb") as f:
+                f.write(vid_file.getbuffer())
+            current_vids = str(edited_feedback.at[idx,"video"]) if "video" in edited_feedback.columns and pd.notna(edited_feedback.at[idx,"video"]) else ""
+            vids = list(set(current_vids.split("|") + [vid_file.name]))
+            edited_feedback.at[idx,"video"] = "|".join([v for v in vids if v])
 
-    st.subheader("All Feedbacks")
-    st.dataframe(df_feedback, use_container_width=True)
+    # Save feedback permanently
+    save_feedback(edited_feedback)
+    st.success("Feedback saved permanently!")
+
+    # Download button
+    st.download_button("⬇ Download Feedback Excel", data=open(FEEDBACK_PATH, "rb").read(), file_name="user_feedback.xlsx")
