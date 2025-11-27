@@ -277,5 +277,13 @@ elif page == "✉️ User Feedback":
         save_feedback(edited_feedback)
         st.success("Feedback edits saved successfully!")
 
-    # Download feedback Excel
-    st.download_button("⬇ Download Feedback Excel", data=open(FEEDBACK_PATH, "rb").read(), file_name="user_feedback.xlsx")
+# Save feedback edits to in-memory Excel
+excel_buffer = io.BytesIO()
+edited_feedback.to_excel(excel_buffer, index=False)
+excel_buffer.seek(0)
+
+st.download_button(
+    "⬇ Download Feedback Excel",
+    data=excel_buffer,
+    file_name="user_feedback.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
