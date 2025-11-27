@@ -148,7 +148,7 @@ if page == "📊 Dashboard":
         except Exception as e:
             st.warning(f"Cannot generate chart for column '{chart_col}': {e}")
 
-# ------------------------ FLOATING SAVE BUTTON FUNCTION ------------------------
+# ------------------------ FLOATING SAVE BUTTON ------------------------
 def floating_save_button():
     st.markdown(
         """
@@ -158,18 +158,14 @@ def floating_save_button():
             top: 20px;
             right: 20px;
             z-index: 9999;
-            background-color: #ffffff;
-            padding: 10px;
-            border-radius: 10px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
         }
         .floating-toolbar button {
             margin: 5px;
-            padding: 5px 12px;
+            padding: 8px 15px;
             background-color: #007bff;
             color: white;
             border: none;
-            border-radius: 5px;
+            border-radius: 6px;
             cursor: pointer;
         }
         .floating-toolbar button:hover {
@@ -179,10 +175,6 @@ def floating_save_button():
         <div class="floating-toolbar">
             <button id="saveBtn">💾 Save</button>
         </div>
-        <script>
-        const saveBtn = window.parent.document.getElementById("saveBtn");
-        if(saveBtn){saveBtn.addEventListener("click", () => {window.parent.postMessage({type:"SAVE_PAGE"},"*");})}
-        </script>
         """, unsafe_allow_html=True
     )
 
@@ -190,9 +182,28 @@ def floating_save_button():
 if page == "📋 UAT Issues (Editable)":
     st.header("📋 Edit UAT Issues")
     edited_main = st.experimental_data_editor(df_main, num_rows="dynamic", use_container_width=True)
+
+    # Media upload per row
+    for idx in edited_main.index:
+        st.markdown(f"**Row {idx+1}: {edited_main.at[idx,'Issue']}**")
+        img_file = st.file_uploader(f"Upload Image for row {idx+1}", type=["png","jpg","jpeg"], key=f"img_{idx}")
+        vid_file = st.file_uploader(f"Upload Video for row {idx+1}", type=["mp4","mov"], key=f"vid_{idx}")
+        if img_file:
+            path = os.path.join(MEDIA_FOLDER, img_file.name)
+            with open(path,"wb") as f:
+                f.write(img_file.getbuffer())
+            current_imgs = str(edited_main.at[idx,"image"]) if pd.notna(edited_main.at[idx,"image"]) else ""
+            imgs = list(set(current_imgs.split("|") + [img_file.name]))
+            edited_main.at[idx,"image"] = "|".join([i for i in imgs if i])
+        if vid_file:
+            path = os.path.join(MEDIA_FOLDER, vid_file.name)
+            with open(path,"wb") as f:
+                f.write(vid_file.getbuffer())
+            current_vids = str(edited_main.at[idx,"video"]) if pd.notna(edited_main.at[idx,"video"]) else ""
+            vids = list(set(current_vids.split("|") + [vid_file.name]))
+            edited_main.at[idx,"video"] = "|".join([v for v in vids if v])
+
     floating_save_button()
-    
-    # JS listener
     save_clicked = st.button("💾 Save Changes", key="uat_save_button")
     if save_clicked:
         save_excel(edited_main, df_arch)
@@ -201,33 +212,60 @@ if page == "📋 UAT Issues (Editable)":
 elif page == "🏗️ Architecture Issues (Editable)":
     st.header("🏗️ Edit Architecture Issues")
     edited_arch = st.experimental_data_editor(df_arch, num_rows="dynamic", use_container_width=True)
+
+    # Media upload per row
+    for idx in edited_arch.index:
+        st.markdown(f"**Row {idx+1}: {edited_arch.at[idx,'Issue']}**")
+        img_file = st.file_uploader(f"Upload Image for row {idx+1}", type=["png","jpg","jpeg"], key=f"arch_img_{idx}")
+        vid_file = st.file_uploader(f"Upload Video for row {idx+1}", type=["mp4","mov"], key=f"arch_vid_{idx}")
+        if img_file:
+            path = os.path.join(MEDIA_FOLDER, img_file.name)
+            with open(path,"wb") as f:
+                f.write(img_file.getbuffer())
+            current_imgs = str(edited_arch.at[idx,"image"]) if pd.notna(edited_arch.at[idx,"image"]) else ""
+            imgs = list(set(current_imgs.split("|") + [img_file.name]))
+            edited_arch.at[idx,"image"] = "|".join([i for i in imgs if i])
+        if vid_file:
+            path = os.path.join(MEDIA_FOLDER, vid_file.name)
+            with open(path,"wb") as f:
+                f.write(vid_file.getbuffer())
+            current_vids = str(edited_arch.at[idx,"video"]) if pd.notna(edited_arch.at[idx,"video"]) else ""
+            vids = list(set(current_vids.split("|") + [vid_file.name]))
+            edited_arch.at[idx,"video"] = "|".join([v for v in vids if v])
+
     floating_save_button()
-    
     save_clicked = st.button("💾 Save Changes", key="arch_save_button")
     if save_clicked:
         save_excel(df_main, edited_arch)
         st.success("Architecture Issues saved permanently!")
 
+# ------------------------ USER FEEDBACK ------------------------
 elif page == "✉️ User Feedback":
     st.header("✉️ User Feedback")
+
+    # Feedback submission form
     with st.form("feedback_form"):
         name = st.text_input("Name")
         email = st.text_input("Email")
         feedback = st.text_area("Feedback")
         submitted = st.form_submit_button("Submit")
         if submitted:
-            df_feedback = df_feedback.append({"Name": name,"Email": email,"Feedback": feedback,"Date": pd.Timestamp.now()}, ignore_index=True)
+            df_feedback = df_feedback.append({
+                "Name": name,
+                "Email": email,
+                "Feedback": feedback,
+                "Date": pd.Timestamp.now()
+            }, ignore_index=True)
             save_feedback(df_feedback)
             st.success("Feedback saved successfully!")
 
-    # Editable table
+    # Editable table for previously submitted feedback
     st.subheader("Edit Submitted Feedback")
     edited_feedback = st.experimental_data_editor(df_feedback, num_rows="dynamic", use_container_width=True)
-    floating_save_button()
     
-    save_clicked = st.button("💾 Save Changes", key="feedback_save_button")
-    if save_clicked:
-        save_feedback(edited_feedback)
-        st.success("All edits saved permanently!")
+    # Auto save feedback edits
+    save_feedback(edited_feedback)
+    st.success("All edits saved permanently!")
 
+    # Download feedback Excel
     st.download_button("⬇ Download Feedback Excel", data=open(FEEDBACK_PATH, "rb").read(), file_name="user_feedback.xlsx")
