@@ -287,3 +287,4 @@ st.download_button(
     data=excel_buffer,
     file_name="user_feedback.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
