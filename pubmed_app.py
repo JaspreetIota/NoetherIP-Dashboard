@@ -73,7 +73,7 @@ if "df_feedback" not in st.session_state:
 # ------------------------ SIDEBAR PAGE SELECTOR ------------------------
 page = st.sidebar.radio(
     "Select Page",
-    ["📊 Dashboard", "📋 UAT Issues (Editable)", "🏗️ Architecture Issues (Editable)", "✉️ User Feedback"]
+    ["📊 Dashboard", "📋 UAT Issues (Editable)", "🏗️ Architecture Issues (Editable)", "✉️ User Feedback", "🎫 Support Tickets"]
 )
 
 
@@ -350,3 +350,182 @@ elif page == "✉️ User Feedback":
     buf.seek(0)
 
     st.download_button("⬇ Download Feedback", buf, "user_feedback.xlsx")
+
+# ======================================================================
+#                        SUPPORT TICKETS PAGE  🎫
+# ======================================================================
+elif page == "🎫 Support Tickets":
+
+    st.set_page_config(page_title="Support tickets", page_icon="🎫")
+
+    st.title("🎫 Support Tickets Dashboard")
+    st.write(
+        """
+        Manage and track your internal support tickets.
+        Create tickets, edit existing ones, visualize stats, 
+        and download/export reports.
+        """
+    )
+
+    # ---------- INITIALIZE SESSION DF ----------
+    if "tickets_df" not in st.session_state:
+
+        # Fake data for first-time initialization
+        np.random.seed(42)
+        issue_descriptions = [
+            "Network connectivity issues in the office",
+            "Software application crashing on startup",
+            "Printer not responding to print commands",
+            "Email server downtime",
+            "Data backup failure",
+            "Login authentication problems",
+            "Website performance degradation",
+            "Security vulnerability identified",
+            "Hardware malfunction in the server room",
+            "Employee unable to access shared files",
+            "Database connection failure",
+            "Mobile application not syncing data",
+            "VoIP phone system issues",
+            "VPN connection problems for remote employees",
+            "System updates causing compatibility issues",
+            "File server running out of storage space",
+            "Intrusion detection system alerts",
+            "Inventory management system errors",
+            "Customer data not loading in CRM",
+            "Collaboration tool not sending notifications",
+        ]
+
+        data = {
+            "ID": [f"TICKET-{i}" for i in range(1100, 1000, -1)],
+            "Issue": np.random.choice(issue_descriptions, size=100),
+            "Status": np.random.choice(["Open", "In Progress", "Closed"], size=100),
+            "Priority": np.random.choice(["High", "Medium", "Low"], size=100),
+            "Date Submitted": [
+                datetime.date(2023, 6, 1) + datetime.timedelta(days=random.randint(0, 182))
+                for _ in range(100)
+            ],
+        }
+        st.session_state.tickets_df = pd.DataFrame(data)
+
+    df_tickets = st.session_state.tickets_df
+
+    # ===================================================================
+    #                           ADD A TICKET
+    # ===================================================================
+    st.header("Add a Ticket")
+
+    with st.form("add_ticket_form"):
+        issue = st.text_area("Describe the issue")
+        priority = st.selectbox("Priority", ["High", "Medium", "Low"])
+        submitted = st.form_submit_button("Submit")
+
+    if submitted:
+        recent_number = int(max(df_tickets.ID).split("-")[1])
+        today = datetime.datetime.now().strftime("%Y-%m-%d")
+
+        df_new = pd.DataFrame([{
+            "ID": f"TICKET-{recent_number + 1}",
+            "Issue": issue,
+            "Status": "Open",
+            "Priority": priority,
+            "Date Submitted": today,
+        }])
+
+        st.success("Ticket submitted!")
+        st.dataframe(df_new, use_container_width=True)
+
+        st.session_state.tickets_df = pd.concat([df_new, df_tickets], ignore_index=True)
+
+    # ===================================================================
+    #                       EXISTING TICKETS TABLE
+    # ===================================================================
+    st.header("Existing Tickets")
+    st.write(f"Number of tickets: `{len(df_tickets)}`")
+
+    edited_df = st.data_editor(
+        df_tickets,
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "Status": st.column_config.SelectboxColumn(
+                options=["Open", "In Progress", "Closed"]
+            ),
+            "Priority": st.column_config.SelectboxColumn(
+                options=["High", "Medium", "Low"]
+            ),
+        },
+        disabled=["ID", "Date Submitted"],
+    )
+
+    st.session_state.tickets_df = edited_df
+
+    # ===================================================================
+    #                       DOWNLOAD TICKETS
+    # ===================================================================
+    st.subheader("⬇ Download All Tickets")
+
+    ticket_buf = BytesIO()
+    edited_df.to_excel(ticket_buf, index=False)
+    ticket_buf.seek(0)
+
+    st.download_button("Download Tickets (.xlsx)", ticket_buf, "support_tickets.xlsx")
+
+    # ===================================================================
+    #                           STATISTICS
+    # ===================================================================
+    st.header("Statistics")
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Open Tickets", len(edited_df[edited_df.Status == "Open"]))
+    col2.metric("Avg Response Time (hrs)", 5.2, delta=-1.5)
+    col3.metric("Avg Resolution Time (hrs)", 16, delta=2)
+
+    # ===================================================================
+    #                       CUSTOM CHARTS (YOUR REQUIREMENT)
+    # ===================================================================
+    st.subheader("📊 Custom Chart")
+
+    chart_col = st.selectbox("Select column to chart", edited_df.columns)
+    chart_type = st.selectbox("Chart type", ["Bar", "Pie", "Histogram"])
+
+    try:
+        if chart_type == "Bar":
+            fig = px.bar(edited_df, x=chart_col)
+        elif chart_type == "Pie":
+            fig = px.pie(edited_df, names=chart_col)
+        else:
+            fig = px.histogram(edited_df, x=chart_col)
+
+        st.plotly_chart(fig)
+    except Exception as e:
+        st.warning(f"Chart cannot be displayed: {e}")
+
+    # ===================================================================
+    #                      ALTAIR PLOTS (Original)
+    # ===================================================================
+    st.subheader("📈 Ticket Status Per Month")
+
+    status_plot = (
+        alt.Chart(edited_df)
+        .mark_bar()
+        .encode(
+            x="month(Date Submitted):O",
+            y="count():Q",
+            xOffset="Status:N",
+            color="Status:N",
+        )
+    )
+    st.altair_chart(status_plot, use_container_width=True)
+
+    st.subheader("📈 Ticket Priority Breakdown")
+
+    priority_plot = (
+        alt.Chart(edited_df)
+        .mark_arc()
+        .encode(
+            theta="count():Q",
+            color="Priority:N"
+        )
+    )
+    st.altair_chart(priority_plot, use_container_width=True)
+
