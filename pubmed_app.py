@@ -1,8 +1,12 @@
 import streamlit as st
 import pandas as pd
+import numpy as np   # <-- REQUIRED
 import os
+import datetime
+import random
 from io import BytesIO
 import plotly.express as px
+import altair as alt
 
 st.set_page_config(page_title="UAT & Architecture Bug Tracker", layout="wide")
 st.title("🧪 Noether IP Status")
