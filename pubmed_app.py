@@ -472,15 +472,74 @@ elif page == "🎫 Support Tickets":
 
     st.download_button("Download Tickets (.xlsx)", ticket_buf, "support_tickets.xlsx")
 
-    # ===================================================================
-    #                           STATISTICS
-    # ===================================================================
-    st.header("Statistics")
+# ======================================================================
+#                             STATISTICS SECTION
+# ======================================================================
+st.subheader("📌 Statistics Summary")
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Open Tickets", len(edited_df[edited_df.Status == "Open"]))
-    col2.metric("Avg Response Time (hrs)", 5.2, delta=-1.5)
-    col3.metric("Avg Resolution Time (hrs)", 16, delta=2)
+col1, col2, col3 = st.columns(3)
+
+# ---- COMMON METRICS ----
+total_issues = len(df)
+unique_types = df["Type"].nunique() if "Type" in df else 0
+
+col1.metric("Total Issues", total_issues)
+col2.metric("Unique Types", unique_types)
+
+if "dev status" in df:
+    resolved = df["dev status"].astype(str).str.lower().eq("resolved").sum()
+    col3.metric("Resolved Issues", resolved)
+else:
+    col3.metric("Resolved Issues", "N/A")
+
+
+# ======================================================================
+#                         UAT SPECIFIC STATISTICS
+# ======================================================================
+if dashboard_type == "UAT Issues":
+
+    st.markdown("### 🧪 UAT Statistics")
+
+    # Count resolved per client column
+    client_stats = {
+        client: df[client].astype(str).str.lower().eq("yes").sum()
+        for client in CLIENT_COLUMNS if client in df.columns
+    }
+
+    # Show metrics in rows of 3
+    metric_cols = st.columns(3)
+    for i, (client, count) in enumerate(client_stats.items()):
+        metric_cols[i % 3].metric(f"{client} Resolved", count)
+
+
+# ======================================================================
+#                       ARCHITECTURE STATISTICS
+# ======================================================================
+elif dashboard_type == "Architecture Issues":
+
+    st.markdown("### 🏗 Architecture Statistics")
+
+    # Status counts
+    if "Status" in df:
+        status_counts = df["Status"].value_counts()
+
+        stat_cols = st.columns(3)
+        i = 0
+        for status_label, count in status_counts.items():
+            stat_cols[i % 3].metric(f"{status_label}", count)
+            i += 1
+
+    # Dev status counts
+    if "dev status" in df:
+        dev_counts = df["dev status"].value_counts()
+
+        st.markdown("#### Dev Status Overview")
+        stat_cols = st.columns(3)
+        i = 0
+        for label, count in dev_counts.items():
+            stat_cols[i % 3].metric(f"{label}", count)
+            i += 1
+
 
     # ===================================================================
     #                       CUSTOM CHARTS (YOUR REQUIREMENT)
