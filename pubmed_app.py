@@ -356,8 +356,6 @@ elif page == "✉️ User Feedback":
 # ======================================================================
 elif page == "🎫 Support Tickets":
 
-    st.set_page_config(page_title="Support tickets", page_icon="🎫")
-
     st.title("🎫 Support Tickets Dashboard")
     st.write(
         """
