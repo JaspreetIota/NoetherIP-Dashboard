@@ -57,6 +57,16 @@ def load_feedback():
 def save_feedback(df_fb):
     df_fb.to_excel(FEEDBACK_PATH, index=False)
 
+def handle_file_upload(uploaded_files):
+    """Save uploaded files to MEDIA_FOLDER and return filenames joined by |"""
+    saved_files = []
+    for f in uploaded_files:
+        save_path = os.path.join(MEDIA_FOLDER, f.name)
+        with open(save_path, "wb") as out:
+            out.write(f.getbuffer())
+        saved_files.append(f.name)
+    return "|".join(saved_files)
+
 # ------------------------ SESSION STATE INIT ------------------------
 if "df_main" not in st.session_state:
     st.session_state.df_main, st.session_state.df_arch = load_excel()
@@ -193,7 +203,22 @@ if page == "📊 Dashboard":
 elif page == "📋 UAT Issues (Editable)":
     st.header("📋 Edit UAT Issues")
     save_clicked = st.button("💾 Save Changes")
-    edited_main = st.experimental_data_editor(st.session_state.df_main, num_rows="dynamic", use_container_width=True)
+
+    with st.form("uat_form", clear_on_submit=False):
+        edited_main = st.experimental_data_editor(st.session_state.df_main, num_rows="dynamic", use_container_width=True)
+
+        st.markdown("### Upload Media for New/Existing Rows")
+        uploaded_images = st.file_uploader("Images", type=["png","jpg","jpeg","gif"], accept_multiple_files=True, key="uat_img")
+        uploaded_videos = st.file_uploader("Videos", type=["mp4","mov","avi"], accept_multiple_files=True, key="uat_vid")
+        media_submit = st.form_submit_button("Save Media")
+
+        if media_submit:
+            new_images = handle_file_upload(uploaded_images)
+            new_videos = handle_file_upload(uploaded_videos)
+            if not edited_main.empty:
+                edited_main.at[edited_main.index[-1], "image"] = new_images
+                edited_main.at[edited_main.index[-1], "video"] = new_videos
+
     if save_clicked:
         st.session_state.df_main = edited_main
         save_excel(st.session_state.df_main, st.session_state.df_arch)
@@ -205,7 +230,22 @@ elif page == "📋 UAT Issues (Editable)":
 elif page == "🏗️ Architecture Issues (Editable)":
     st.header("🏗️ Edit Architecture Issues")
     save_clicked = st.button("💾 Save Changes")
-    edited_arch = st.experimental_data_editor(st.session_state.df_arch, num_rows="dynamic", use_container_width=True)
+
+    with st.form("arch_form", clear_on_submit=False):
+        edited_arch = st.experimental_data_editor(st.session_state.df_arch, num_rows="dynamic", use_container_width=True)
+
+        st.markdown("### Upload Media for New/Existing Rows")
+        uploaded_images = st.file_uploader("Images", type=["png","jpg","jpeg","gif"], accept_multiple_files=True, key="arch_img")
+        uploaded_videos = st.file_uploader("Videos", type=["mp4","mov","avi"], accept_multiple_files=True, key="arch_vid")
+        media_submit = st.form_submit_button("Save Media")
+
+        if media_submit:
+            new_images = handle_file_upload(uploaded_images)
+            new_videos = handle_file_upload(uploaded_videos)
+            if not edited_arch.empty:
+                edited_arch.at[edited_arch.index[-1], "image"] = new_images
+                edited_arch.at[edited_arch.index[-1], "video"] = new_videos
+
     if save_clicked:
         st.session_state.df_arch = edited_arch
         save_excel(st.session_state.df_main, st.session_state.df_arch)
