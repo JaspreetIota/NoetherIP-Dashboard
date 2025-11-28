@@ -480,7 +480,7 @@ st.subheader("📌 Statistics Summary")
 col1, col2, col3 = st.columns(3)
 
 # ---- COMMON METRICS ----
-total_issues = len(df)
+total_issues = len(df_tickets)
 unique_types = df["Type"].nunique() if "Type" in df else 0
 
 col1.metric("Total Issues", total_issues)
@@ -546,7 +546,7 @@ elif dashboard_type == "Architecture Issues":
     # ===================================================================
     st.subheader("📊 Custom Chart")
 
-    chart_col = st.selectbox("Select column to chart", edited_df.columns)
+    chart_col = st.selectbox("Select column to chart", df.columns)
     chart_type = st.selectbox("Chart type", ["Bar", "Pie", "Histogram"])
 
     try:
