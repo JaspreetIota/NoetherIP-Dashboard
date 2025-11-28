@@ -197,32 +197,80 @@ if page == "📊 Dashboard":
             for i, (label, count) in enumerate(dev_counts.items()):
                 stat_cols[i % 3].metric(f"{label}", count)
 
-# ======================================================================
-#                        UAT ISSUES EDITABLE PAGE
-# ======================================================================
+# ===================== UAT ISSUES EDITABLE PAGE =====================
 elif page == "📋 UAT Issues (Editable)":
     st.header("📋 Edit UAT Issues")
     save_clicked = st.button("💾 Save Changes")
 
-    with st.form("uat_form", clear_on_submit=False):
-        edited_main = st.experimental_data_editor(st.session_state.df_main, num_rows="dynamic", use_container_width=True)
+    edited_main = st.experimental_data_editor(
+        st.session_state.df_main, num_rows="dynamic", use_container_width=True
+    )
 
-        st.markdown("### Upload Media for New/Existing Rows")
-        uploaded_images = st.file_uploader("Images", type=["png","jpg","jpeg","gif"], accept_multiple_files=True, key="uat_img")
-        uploaded_videos = st.file_uploader("Videos", type=["mp4","mov","avi"], accept_multiple_files=True, key="uat_vid")
-        media_submit = st.form_submit_button("Save Media")
-
-        if media_submit:
-            new_images = handle_file_upload(uploaded_images)
-            new_videos = handle_file_upload(uploaded_videos)
-            if not edited_main.empty:
-                edited_main.at[edited_main.index[-1], "image"] = new_images
-                edited_main.at[edited_main.index[-1], "video"] = new_videos
+    st.markdown("### Upload Media for Each Row")
+    for idx, row in edited_main.iterrows():
+        st.markdown(f"**Row {idx + 1}: {row.get('Issue','')}**")
+        col1, col2 = st.columns(2)
+        with col1:
+            imgs = st.file_uploader(
+                f"Images (Row {idx + 1})",
+                type=["png","jpg","jpeg","gif"],
+                accept_multiple_files=True,
+                key=f"uat_img_{idx}"
+            )
+            if imgs:
+                edited_main.at[idx, "image"] = handle_file_upload(imgs)
+        with col2:
+            vids = st.file_uploader(
+                f"Videos (Row {idx + 1})",
+                type=["mp4","mov","avi"],
+                accept_multiple_files=True,
+                key=f"uat_vid_{idx}"
+            )
+            if vids:
+                edited_main.at[idx, "video"] = handle_file_upload(vids)
 
     if save_clicked:
         st.session_state.df_main = edited_main
         save_excel(st.session_state.df_main, st.session_state.df_arch)
         st.success("UAT Issues saved!")
+
+# ===================== ARCHITECTURE ISSUES EDITABLE PAGE =====================
+elif page == "🏗️ Architecture Issues (Editable)":
+    st.header("🏗️ Edit Architecture Issues")
+    save_clicked = st.button("💾 Save Changes")
+
+    edited_arch = st.experimental_data_editor(
+        st.session_state.df_arch, num_rows="dynamic", use_container_width=True
+    )
+
+    st.markdown("### Upload Media for Each Row")
+    for idx, row in edited_arch.iterrows():
+        st.markdown(f"**Row {idx + 1}: {row.get('Issue','')}**")
+        col1, col2 = st.columns(2)
+        with col1:
+            imgs = st.file_uploader(
+                f"Images (Row {idx + 1})",
+                type=["png","jpg","jpeg","gif"],
+                accept_multiple_files=True,
+                key=f"arch_img_{idx}"
+            )
+            if imgs:
+                edited_arch.at[idx, "image"] = handle_file_upload(imgs)
+        with col2:
+            vids = st.file_uploader(
+                f"Videos (Row {idx + 1})",
+                type=["mp4","mov","avi"],
+                accept_multiple_files=True,
+                key=f"arch_vid_{idx}"
+            )
+            if vids:
+                edited_arch.at[idx, "video"] = handle_file_upload(vids)
+
+    if save_clicked:
+        st.session_state.df_arch = edited_arch
+        save_excel(st.session_state.df_main, st.session_state.df_arch)
+        st.success("Architecture Issues saved!")
+
 
 # ======================================================================
 #                   ARCHITECTURE ISSUES EDITABLE PAGE
