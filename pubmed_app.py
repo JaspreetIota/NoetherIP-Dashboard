@@ -472,73 +472,40 @@ elif page == "🎫 Support Tickets":
 
     st.download_button("Download Tickets (.xlsx)", ticket_buf, "support_tickets.xlsx")
 
-# ======================================================================
-#                             STATISTICS SECTION
-# ======================================================================
+# ------------------------------------------------------------
+#                SUPPORT TICKETS - STATISTICS
+# ------------------------------------------------------------
+st.header("Statistics")
+
+df_tickets = st.session_state.df   # <-- THIS IS YOUR SUPPORT TICKET DATAFRAME
+
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Tickets", len(df_tickets))
+col2.metric("Open Tickets", len(df_tickets[df_tickets["Status"] == "Open"]))
+col3.metric("Closed Tickets", len(df_tickets[df_tickets["Status"] == "Closed"]))
+
+
+# ------------------------------------------------------------
+#               DASHBOARD (UAT / ARCHITECTURE) STATISTICS
+# ------------------------------------------------------------
 st.subheader("📌 Statistics Summary")
+
+df_dashboard = df   # <--- USE YOUR CURRENT DASHBOARD DF
 
 col1, col2, col3 = st.columns(3)
 
-# ---- COMMON METRICS ----
-total_issues = len(df_tickets)
-unique_types = df["Type"].nunique() if "Type" in df else 0
+col1.metric("Total Issues", len(df_dashboard))
 
-col1.metric("Total Issues", total_issues)
-col2.metric("Unique Types", unique_types)
+if "Type" in df_dashboard:
+    col2.metric("Unique Types", df_dashboard["Type"].nunique())
+else:
+    col2.metric("Unique Types", "N/A")
 
-if "dev status" in df:
-    resolved = df["dev status"].astype(str).str.lower().eq("resolved").sum()
+if "dev status" in df_dashboard:
+    resolved = df_dashboard["dev status"].astype(str).str.lower().eq("resolved").sum()
     col3.metric("Resolved Issues", resolved)
 else:
     col3.metric("Resolved Issues", "N/A")
-
-
-# ======================================================================
-#                         UAT SPECIFIC STATISTICS
-# ======================================================================
-if dashboard_type == "UAT Issues":
-
-    st.markdown("### 🧪 UAT Statistics")
-
-    # Count resolved per client column
-    client_stats = {
-        client: df[client].astype(str).str.lower().eq("yes").sum()
-        for client in CLIENT_COLUMNS if client in df.columns
-    }
-
-    # Show metrics in rows of 3
-    metric_cols = st.columns(3)
-    for i, (client, count) in enumerate(client_stats.items()):
-        metric_cols[i % 3].metric(f"{client} Resolved", count)
-
-
-# ======================================================================
-#                       ARCHITECTURE STATISTICS
-# ======================================================================
-elif dashboard_type == "Architecture Issues":
-
-    st.markdown("### 🏗 Architecture Statistics")
-
-    # Status counts
-    if "Status" in df:
-        status_counts = df["Status"].value_counts()
-
-        stat_cols = st.columns(3)
-        i = 0
-        for status_label, count in status_counts.items():
-            stat_cols[i % 3].metric(f"{status_label}", count)
-            i += 1
-
-    # Dev status counts
-    if "dev status" in df:
-        dev_counts = df["dev status"].value_counts()
-
-        st.markdown("#### Dev Status Overview")
-        stat_cols = st.columns(3)
-        i = 0
-        for label, count in dev_counts.items():
-            stat_cols[i % 3].metric(f"{label}", count)
-            i += 1
 
 
     # ===================================================================
